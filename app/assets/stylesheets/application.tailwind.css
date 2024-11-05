@@ -2,26 +2,3 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@layer components {  
-  .notification {
-    @apply bg-white/90 p-3 rounded-lg shadow-lg mb-2 transform transition-all duration-300;
-  }
-
-  .notification-enter {
-    @apply translate-x-[-100%];
-  }
-
-  .notification-enter-active {
-    @apply translate-x-0;
-  }
-
-  .notification-exit {
-    @apply opacity-100;
-  }
-
-  .notification-exit-active {
-    @apply opacity-0;
-  }
-}
-

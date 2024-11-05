@@ -5,7 +5,7 @@ export const config = {
   worldHeight: 1500,
   
   // Player configuration
-  playerSize: 32,
+  playerSize: 50,
   playerSpeed: 4,
-  movementThrottle: 16
+  movementThrottle: 10
 };
