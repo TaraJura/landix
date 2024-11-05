@@ -1,5 +1,6 @@
 // app/javascript/channels/game_channel.js
-import consumer from "./consumer"
+import consumer from "./consumer";
+import { config } from '../config';
 
 export class GameConnection {
   constructor(game) {
@@ -24,9 +25,15 @@ export class GameConnection {
     switch (data.type) {
       case 'new_player':
         this.game.addPlayer(data.player_id, data.x, data.y);
-        // If we're the first player, initialize the game
-        if (this.game.players.size === 1) {
-          this.game.initializeGame(true);
+        // If we're the host, share current tree state with new player
+        if (this.game.isHost && this.game.trees.size > 0) {
+          this.shareTreeLocations(Array.from(this.game.treeLocations.entries()).map(([id, pos]) => ({
+            id,
+            x: pos.x,
+            y: pos.y,
+            resources: this.game.trees.get(id)?.resources || config.woodPerTree,
+            seed: this.game.treeSeed
+          })));
         }
         break;
 
@@ -43,18 +50,20 @@ export class GameConnection {
         break;
 
       case 'request_game_state':
-        if (this.game.localPlayer && this.game.trees.size > 0) {
-          this.shareTreeLocations(Array.from(this.game.treeLocations.entries()).map(([id, pos]) => ({
+        if (this.game.isHost && this.game.trees.size > 0) {
+          const treeData = Array.from(this.game.treeLocations.entries()).map(([id, pos]) => ({
             id,
             x: pos.x,
             y: pos.y,
-            resources: this.game.trees.get(id)?.resources || config.woodPerTree
-          })));
+            resources: this.game.trees.get(id)?.resources || config.woodPerTree,
+            seed: this.game.treeSeed
+          }));
+          this.shareTreeLocations(treeData);
         }
         break;
 
       case 'tree_locations':
-        if (!this.game.localPlayer || this.game.trees.size === 0) {
+        if (!this.game.isHost && !this.game.treesInitialized) {
           this.game.syncTrees(data.trees);
         }
         break;

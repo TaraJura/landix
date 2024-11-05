@@ -11,16 +11,22 @@ export class Game {
     this.trees = new Map();
     this.treesContainer = document.getElementById('trees-container');
     this.playersContainer = document.getElementById('players-container');
-    this.treeLocations = new Map(); // Store tree positions for synchronization
+    this.treeLocations = new Map();
     this.connection = new GameConnection(this);
+    this.isHost = false;
+    this.treesInitialized = false;
+    this.treeSeed = null;
     this.setupControls();
     this.setupResizeHandler();
     this.startGameLoop();
   }
 
   initializeGame(isFirstPlayer = false) {
-    if (isFirstPlayer) {
+    this.isHost = isFirstPlayer;
+    if (isFirstPlayer && !this.treesInitialized) {
+      this.treeSeed = Date.now();
       this.generateTrees();
+      this.treesInitialized = true;
     }
   }
 
@@ -35,7 +41,6 @@ export class Game {
       if (isLocal) {
         this.localPlayer = player;
         console.log('Local player initialized:', playerId);
-        // Request game state from other players
         this.connection.requestGameState();
       } else {
         console.log('Remote player joined:', playerId);
@@ -65,10 +70,12 @@ export class Game {
     this.trees.clear();
     this.treeLocations.clear();
   
+    const random = this.seededRandom(this.treeSeed);
+  
     for (let i = 0; i < config.numberOfTrees; i++) {
       const treeId = `tree-${i}`;
-      const x = Math.random() * (window.innerWidth - 40);
-      const y = Math.random() * (window.innerHeight - 60);
+      const x = Math.floor(random() * (window.innerWidth - 40));
+      const y = Math.floor(random() * (window.innerHeight - 60));
       
       this.treeLocations.set(treeId, { x, y });
       const tree = new Tree(treeId, x, y);
@@ -76,8 +83,17 @@ export class Game {
       this.treesContainer.appendChild(tree.element);
     }
 
-    // Share tree positions with other players
-    this.shareTreeLocations();
+    if (this.isHost) {
+      this.shareTreeLocations();
+    }
+  }
+
+  seededRandom(seed) {
+    let value = seed;
+    return function() {
+      value = value * 16807 % 2147483647;
+      return (value - 1) / 2147483646;
+    };
   }
 
   shareTreeLocations() {
@@ -85,24 +101,27 @@ export class Game {
       id,
       x: pos.x,
       y: pos.y,
-      resources: this.trees.get(id)?.resources || config.woodPerTree
+      resources: this.trees.get(id)?.resources || config.woodPerTree,
+      seed: this.treeSeed
     }));
     this.connection.shareTreeLocations(treeData);
   }
 
   syncTrees(treeData) {
-    this.treesContainer.innerHTML = '';
-    this.trees.clear();
-    this.treeLocations.clear();
-
-    treeData.forEach(({ id, x, y, resources }) => {
-      this.treeLocations.set(id, { x, y });
-      const tree = new Tree(id, x, y);
-      tree.resources = resources;
-      tree.updateTreeDisplay();
-      this.trees.set(id, tree);
-      this.treesContainer.appendChild(tree.element);
-    });
+    if (!this.isHost && !this.treesInitialized) {
+      this.treeSeed = treeData[0].seed;
+      this.generateTrees();
+      
+      treeData.forEach(({ id, resources }) => {
+        const tree = this.trees.get(id);
+        if (tree) {
+          tree.resources = resources;
+          tree.updateTreeDisplay();
+        }
+      });
+      
+      this.treesInitialized = true;
+    }
   }
 
   startGameLoop() {
@@ -111,10 +130,9 @@ export class Game {
         const oldX = this.localPlayer.position.x;
         const oldY = this.localPlayer.position.y;
         
-        this.localPlayer.move();
+        const positionUpdated = this.localPlayer.move();
         
-        // Only send update if position changed
-        if (oldX !== this.localPlayer.position.x || oldY !== this.localPlayer.position.y) {
+        if (positionUpdated && (oldX !== this.localPlayer.position.x || oldY !== this.localPlayer.position.y)) {
           this.connection.sendPlayerMove(
             this.localPlayer.position.x,
             this.localPlayer.position.y
@@ -180,6 +198,11 @@ export class Game {
         player.addResource('wood', collected);
         NotificationManager.show(`Collected ${collected} wood!`);
       }
+      tree.updateTreeDisplay();
+
+      if (this.isHost) {
+        this.shareTreeLocations();
+      }
     }
   }
 
@@ -191,7 +214,7 @@ export class Game {
           height: window.innerHeight
         };
       });
-      if (this.localPlayer) {
+      if (this.isHost && this.localPlayer) {
         this.generateTrees();
       }
     });

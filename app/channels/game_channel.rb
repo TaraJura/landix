@@ -26,10 +26,14 @@ class GameChannel < ApplicationCable::Channel
     }
   end
 
-  def share_tree_locations(data)
+  def player_state(data)
     ActionCable.server.broadcast "game_channel", {
-      type: 'tree_locations',
-      trees: data['trees']
+      type: 'player_state',
+      player_id: player_id,
+      requesting_player_id: data['requesting_player_id'],
+      x: data['x'],
+      y: data['y'],
+      resources: data['resources']
     }
   end
 
@@ -39,6 +43,13 @@ class GameChannel < ApplicationCable::Channel
       player_id: player_id,
       x: data['x'],
       y: data['y']
+    }
+  end
+
+  def share_tree_locations(data)
+    ActionCable.server.broadcast "game_channel", {
+      type: 'tree_locations',
+      trees: data['trees']
     }
   end
 
