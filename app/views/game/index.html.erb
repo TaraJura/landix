@@ -1,25 +1,35 @@
 <!-- app/views/game/index.html.erb -->
 <div class="fixed inset-0 w-screen h-screen bg-green-100 overflow-hidden">
   <div id="game-field" class="w-full h-full relative">
-    <div id="trees-container" class="w-full h-full"></div>
-    <div id="players-container" class="w-full h-full"></div>
+    <!-- Game Containers with proper z-indexing -->
+    <div id="trees-container" class="absolute inset-0 z-0"></div>
+    <div id="players-container" class="absolute inset-0 z-10"></div>
     
-    <!-- UI Elements -->
-    <div class="fixed top-4 left-4 space-y-2">
-      <div id="inventory" class="bg-white/90 p-3 rounded-lg shadow-lg">
+    <!-- UI Elements with better contrast and positioning -->
+    <div class="fixed top-4 left-4 space-y-2 z-20">
+      <div id="inventory" class="bg-white/95 p-4 rounded-lg shadow-lg border border-green-200">
+        <h2 class="font-bold mb-2">Inventory</h2>
         <!-- Inventory content will be inserted by JavaScript -->
       </div>
       
-      <div id="notifications" class="space-y-2">
+      <div id="notifications" class="space-y-2 max-w-md">
         <!-- Notifications will be inserted by JavaScript -->
       </div>
     </div>
 
-    <!-- Controls Help -->
-    <div class="fixed bottom-4 right-4 bg-white/90 p-3 rounded-lg shadow-lg">
+    <!-- Controls Help with improved visibility -->
+    <div class="fixed bottom-4 right-4 bg-white/95 p-4 rounded-lg shadow-lg border border-green-200 z-20">
       <h3 class="font-bold mb-2">Controls</h3>
-      <p>WASD - Move</p>
-      <p>SPACE - Collect resources</p>
+      <div class="space-y-1 text-sm">
+        <p class="flex items-center gap-2">
+          <span class="font-mono bg-gray-100 px-2 py-1 rounded">WASD</span>
+          <span>Move around</span>
+        </p>
+        <p class="flex items-center gap-2">
+          <span class="font-mono bg-gray-100 px-2 py-1 rounded">SPACE</span>
+          <span>Collect resources</span>
+        </p>
+      </div>
     </div>
   </div>
 </div>

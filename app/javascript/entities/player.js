@@ -1,3 +1,4 @@
+// app/javascript/entities/player.js
 import { config } from '../config';
 
 export class Player {
@@ -5,11 +6,11 @@ export class Player {
     this.id = id;
     this.isLocal = isLocal;
     this.position = { x: 0, y: 0 };
+    this.targetPosition = { x: 0, y: 0 };
     this.resources = { wood: 0 };
     this.keysPressed = new Set();
     this.lastMoveTime = 0;
-    this.moveThrottleInterval = 16; // Approximately 60fps for smooth movement
-    this.movementSize = 3; // Fixed movement increment
+    this.moveThrottleInterval = config.movementThrottle;
     
     // Create player element
     this.element = document.createElement('div');
@@ -18,8 +19,8 @@ export class Player {
     document.getElementById('players-container').appendChild(this.element);
     
     this.size = {
-      width: 32,
-      height: 32
+      width: config.playerSize,
+      height: config.playerSize
     };
     
     this.fieldBoundary = {
@@ -50,7 +51,7 @@ export class Player {
 
     const newPosition = { ...this.position };
     const diagonalModifier = this.keysPressed.size > 1 ? 0.707 : 1;
-    const step = this.movementSize * diagonalModifier;
+    const step = config.playerSpeed * diagonalModifier;
 
     if (this.keysPressed.has('w')) {
       newPosition.y -= step;
@@ -66,7 +67,6 @@ export class Player {
     }
 
     if (this.isValidPosition(newPosition)) {
-      // Snap directly to new position without any interpolation
       this.position = {
         x: Math.round(newPosition.x),
         y: Math.round(newPosition.y)
@@ -87,8 +87,9 @@ export class Player {
   }
 
   updatePosition() {
-    // Snap positioning without any CSS transitions
-    this.element.style.transform = `translate3d(${Math.round(this.position.x)}px, ${Math.round(this.position.y)}px, 0)`;
+    // Use left/top for better cross-browser compatibility
+    this.element.style.left = `${Math.round(this.position.x)}px`;
+    this.element.style.top = `${Math.round(this.position.y)}px`;
   }
 
   addResource(type, amount) {
@@ -106,14 +107,3 @@ export class Player {
     }
   }
 }
-
-// Update config.js to remove moveSpeed since we're using fixed movement size
-export const config = {
-  numberOfTrees: 50,
-  collectionRadius: 50,
-  woodPerTree: 3,
-  treeSize: {
-    min: 20,
-    max: 40
-  }
-};

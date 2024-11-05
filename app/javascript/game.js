@@ -45,6 +45,11 @@ export class Game {
       } else {
         console.log('Remote player joined:', playerId);
       }
+
+      // If we're the host and have trees, share them with the new player
+      if (this.isHost && this.treesInitialized) {
+        this.shareTreeLocations();
+      }
     }
   }
 
@@ -60,6 +65,7 @@ export class Game {
   updatePlayerPosition(playerId, x, y) {
     const player = this.players.get(playerId);
     if (player && !player.isLocal) {
+      player.targetPosition = { x, y };
       player.position = { x, y };
       player.updatePosition();
     }
@@ -69,9 +75,9 @@ export class Game {
     this.treesContainer.innerHTML = '';
     this.trees.clear();
     this.treeLocations.clear();
-  
+
     const random = this.seededRandom(this.treeSeed);
-  
+
     for (let i = 0; i < config.numberOfTrees; i++) {
       const treeId = `tree-${i}`;
       const x = Math.floor(random() * (window.innerWidth - 40));
@@ -83,9 +89,7 @@ export class Game {
       this.treesContainer.appendChild(tree.element);
     }
 
-    if (this.isHost) {
-      this.shareTreeLocations();
-    }
+    console.log(`Generated ${this.trees.size} trees with seed ${this.treeSeed}`);
   }
 
   seededRandom(seed) {
@@ -97,6 +101,8 @@ export class Game {
   }
 
   shareTreeLocations() {
+    if (!this.isHost) return;
+    
     const treeData = Array.from(this.treeLocations.entries()).map(([id, pos]) => ({
       id,
       x: pos.x,
@@ -104,28 +110,36 @@ export class Game {
       resources: this.trees.get(id)?.resources || config.woodPerTree,
       seed: this.treeSeed
     }));
+    
+    console.log('Sharing tree state with seed:', this.treeSeed);
     this.connection.shareTreeLocations(treeData);
   }
 
   syncTrees(treeData) {
-    if (!this.isHost && !this.treesInitialized) {
-      this.treeSeed = treeData[0].seed;
-      this.generateTrees();
-      
-      treeData.forEach(({ id, resources }) => {
-        const tree = this.trees.get(id);
-        if (tree) {
-          tree.resources = resources;
-          tree.updateTreeDisplay();
-        }
-      });
-      
-      this.treesInitialized = true;
-    }
+    if (this.isHost || this.treesInitialized) return;
+
+    console.log('Syncing trees with data:', treeData);
+    this.treeSeed = treeData[0].seed;
+    this.generateTrees();
+
+    treeData.forEach(({ id, resources }) => {
+      const tree = this.trees.get(id);
+      if (tree) {
+        tree.resources = resources;
+        tree.updateTreeDisplay();
+      }
+    });
+
+    this.treesInitialized = true;
   }
 
   startGameLoop() {
-    const gameLoop = () => {
+    let lastTimestamp = 0;
+
+    const gameLoop = (timestamp) => {
+      const deltaTime = (timestamp - lastTimestamp) / 1000;
+      lastTimestamp = timestamp;
+
       if (this.localPlayer) {
         const oldX = this.localPlayer.position.x;
         const oldY = this.localPlayer.position.y;
@@ -139,8 +153,20 @@ export class Game {
           );
         }
       }
+
+      // Update other players
+      this.players.forEach(player => {
+        if (!player.isLocal && player.targetPosition) {
+          const interpolationSpeed = 0.2;
+          player.position.x += (player.targetPosition.x - player.position.x) * interpolationSpeed;
+          player.position.y += (player.targetPosition.y - player.position.y) * interpolationSpeed;
+          player.updatePosition();
+        }
+      });
+
       requestAnimationFrame(gameLoop);
     };
+
     requestAnimationFrame(gameLoop);
   }
 
@@ -198,7 +224,6 @@ export class Game {
         player.addResource('wood', collected);
         NotificationManager.show(`Collected ${collected} wood!`);
       }
-      tree.updateTreeDisplay();
 
       if (this.isHost) {
         this.shareTreeLocations();
@@ -214,9 +239,35 @@ export class Game {
           height: window.innerHeight
         };
       });
-      if (this.isHost && this.localPlayer) {
+      if (this.isHost && this.treesInitialized) {
         this.generateTrees();
       }
     });
+  }
+
+  addOrUpdatePlayer(data) {
+    const { player_id, x, y, resources } = data;
+    let player = this.players.get(player_id);
+    
+    if (player) {
+      // Update existing player
+      player.position = { x, y };
+      player.resources = resources;
+      player.updatePosition();
+      if (player.isLocal) {
+        player.updateInventoryDisplay();
+      }
+    } else {
+      // Create new player
+      console.log('Adding new player from state:', player_id);
+      this.addPlayer(player_id, x, y);
+      player = this.players.get(player_id);
+      if (player) {
+        player.resources = resources;
+        if (player.isLocal) {
+          player.updateInventoryDisplay();
+        }
+      }
+    }
   }
 }
