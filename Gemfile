@@ -12,6 +12,7 @@ gem "tzinfo-data", platforms: %i[ windows jruby ]
 gem "bootsnap", require: false
 gem "pg"
 gem "tailwindcss-rails"
+gem 'redis', '~> 4.0'
 
 
 group :development do

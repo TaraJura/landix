@@ -1,124 +1,199 @@
-// Game configuration
-const config = {
-  moveSpeed: 10,
-  numberOfTrees: 50,  // Increased for better visibility
-  treeSize: {
-    min: 20,
-    max: 40
-  }
-};
+// app/javascript/game.js
+import { config } from './config';
+import { Tree } from './entities/tree';
+import { Player } from './entities/player';
+import { NotificationManager } from './ui/notifications';
+import { GameConnection } from './channels/game_channel';
 
-class Tree {
-  constructor(x, y) {
-    this.element = document.createElement('div');
-    this.element.className = 'absolute';
-    this.element.innerHTML = `
-      <div class="relative">
-        <div class="absolute w-4 h-8 bg-yellow-800 left-1/2 -translate-x-1/2"></div>
-        <div class="absolute w-0 h-0 
-                    border-l-[16px] border-r-[16px] border-b-[24px] 
-                    border-l-transparent border-r-transparent border-b-green-700 
-                    -top-6 left-1/2 -translate-x-1/2"></div>
-        <div class="absolute w-0 h-0 
-                    border-l-[20px] border-r-[20px] border-b-[30px] 
-                    border-l-transparent border-r-transparent border-b-green-800 
-                    -top-12 left-1/2 -translate-x-1/2"></div>
-      </div>
-    `;
-    this.element.style.left = `${x}px`;
-    this.element.style.top = `${y}px`;
-  }
-}
-
-class Player {
+export class Game {
   constructor() {
-    this.element = document.getElementById('player');
-    this.position = { x: 0, y: 0 };
-    this.size = {
-      width: this.element.offsetWidth,
-      height: this.element.offsetHeight
-    };
-    this.fieldBoundary = {
-      width: window.innerWidth,
-      height: window.innerHeight
-    };
-  }
-
-  move(direction) {
-    const newPosition = { ...this.position };
-
-    switch (direction) {
-      case 'w': newPosition.y -= config.moveSpeed; break;
-      case 's': newPosition.y += config.moveSpeed; break;
-      case 'a': newPosition.x -= config.moveSpeed; break;
-      case 'd': newPosition.x += config.moveSpeed; break;
-    }
-
-    if (this.isValidPosition(newPosition)) {
-      this.position = newPosition;
-      this.updatePosition();
-    }
-  }
-
-  isValidPosition(position) {
-    return position.x >= 0 && 
-           position.x <= this.fieldBoundary.width - this.size.width &&
-           position.y >= 0 && 
-           position.y <= this.fieldBoundary.height - this.size.height;
-  }
-
-  updatePosition() {
-    this.element.style.left = `${this.position.x}px`;
-    this.element.style.top = `${this.position.y}px`;
-  }
-}
-
-class Game {
-  constructor() {
-    this.player = new Player();
-    this.trees = [];
+    this.players = new Map();
+    this.trees = new Map();
     this.treesContainer = document.getElementById('trees-container');
-    this.generateTrees();
+    this.playersContainer = document.getElementById('players-container');
+    this.treeLocations = new Map(); // Store tree positions for synchronization
+    this.connection = new GameConnection(this);
     this.setupControls();
     this.setupResizeHandler();
+    this.startGameLoop();
+  }
+
+  initializeGame(isFirstPlayer = false) {
+    if (isFirstPlayer) {
+      this.generateTrees();
+    }
+  }
+
+  addPlayer(playerId, initialX = 0, initialY = 0) {
+    if (!this.players.has(playerId)) {
+      const isLocal = !this.localPlayer;
+      const player = new Player(playerId, isLocal);
+      player.position = { x: initialX, y: initialY };
+      player.updatePosition();
+      this.players.set(playerId, player);
+      
+      if (isLocal) {
+        this.localPlayer = player;
+        console.log('Local player initialized:', playerId);
+        // Request game state from other players
+        this.connection.requestGameState();
+      } else {
+        console.log('Remote player joined:', playerId);
+      }
+    }
+  }
+
+  removePlayer(playerId) {
+    const player = this.players.get(playerId);
+    if (player) {
+      player.element.remove();
+      this.players.delete(playerId);
+      console.log('Player left:', playerId);
+    }
+  }
+
+  updatePlayerPosition(playerId, x, y) {
+    const player = this.players.get(playerId);
+    if (player && !player.isLocal) {
+      player.position = { x, y };
+      player.updatePosition();
+    }
   }
 
   generateTrees() {
     this.treesContainer.innerHTML = '';
-    this.trees = [];
+    this.trees.clear();
+    this.treeLocations.clear();
   
     for (let i = 0; i < config.numberOfTrees; i++) {
+      const treeId = `tree-${i}`;
       const x = Math.random() * (window.innerWidth - 40);
       const y = Math.random() * (window.innerHeight - 60);
       
-      const tree = new Tree(x, y);
-      this.trees.push(tree);
+      this.treeLocations.set(treeId, { x, y });
+      const tree = new Tree(treeId, x, y);
+      this.trees.set(treeId, tree);
       this.treesContainer.appendChild(tree.element);
     }
+
+    // Share tree positions with other players
+    this.shareTreeLocations();
+  }
+
+  shareTreeLocations() {
+    const treeData = Array.from(this.treeLocations.entries()).map(([id, pos]) => ({
+      id,
+      x: pos.x,
+      y: pos.y,
+      resources: this.trees.get(id)?.resources || config.woodPerTree
+    }));
+    this.connection.shareTreeLocations(treeData);
+  }
+
+  syncTrees(treeData) {
+    this.treesContainer.innerHTML = '';
+    this.trees.clear();
+    this.treeLocations.clear();
+
+    treeData.forEach(({ id, x, y, resources }) => {
+      this.treeLocations.set(id, { x, y });
+      const tree = new Tree(id, x, y);
+      tree.resources = resources;
+      tree.updateTreeDisplay();
+      this.trees.set(id, tree);
+      this.treesContainer.appendChild(tree.element);
+    });
+  }
+
+  startGameLoop() {
+    const gameLoop = () => {
+      if (this.localPlayer) {
+        const oldX = this.localPlayer.position.x;
+        const oldY = this.localPlayer.position.y;
+        
+        this.localPlayer.move();
+        
+        // Only send update if position changed
+        if (oldX !== this.localPlayer.position.x || oldY !== this.localPlayer.position.y) {
+          this.connection.sendPlayerMove(
+            this.localPlayer.position.x,
+            this.localPlayer.position.y
+          );
+        }
+      }
+      requestAnimationFrame(gameLoop);
+    };
+    requestAnimationFrame(gameLoop);
   }
 
   setupControls() {
     document.addEventListener('keydown', (event) => {
-      const key = event.key.toLowerCase();
-      if (['w', 's', 'a', 'd'].includes(key)) {
+      if (this.localPlayer) {
+        const key = event.key.toLowerCase();
+        if (['w', 's', 'a', 'd'].includes(key)) {
+          event.preventDefault();
+          this.localPlayer.startMoving(key);
+        }
+      }
+    });
+
+    document.addEventListener('keyup', (event) => {
+      if (this.localPlayer) {
+        const key = event.key.toLowerCase();
+        if (['w', 's', 'a', 'd'].includes(key)) {
+          event.preventDefault();
+          this.localPlayer.stopMoving(key);
+        }
+      }
+    });
+
+    document.addEventListener('keypress', (event) => {
+      if (event.code === 'Space' && this.localPlayer) {
         event.preventDefault();
-        this.player.move(key);
+        this.collectResources();
       }
     });
   }
 
+  collectResources() {
+    if (!this.localPlayer) return;
+
+    this.trees.forEach((tree, treeId) => {
+      const distance = Math.sqrt(
+        Math.pow(tree.x - this.localPlayer.position.x, 2) + 
+        Math.pow(tree.y - this.localPlayer.position.y, 2)
+      );
+
+      if (distance < config.collectionRadius && tree.resources > 0) {
+        this.connection.sendResourceCollected(treeId);
+      }
+    });
+  }
+
+  handleResourceCollection(playerId, treeId) {
+    const tree = this.trees.get(treeId);
+    const player = this.players.get(playerId);
+    
+    if (tree && tree.resources > 0) {
+      const collected = tree.collectResource();
+      if (player?.isLocal) {
+        player.addResource('wood', collected);
+        NotificationManager.show(`Collected ${collected} wood!`);
+      }
+    }
+  }
+
   setupResizeHandler() {
     window.addEventListener('resize', () => {
-      this.player.fieldBoundary = {
-        width: window.innerWidth,
-        height: window.innerHeight
-      };
-      this.generateTrees();
+      this.players.forEach(player => {
+        player.fieldBoundary = {
+          width: window.innerWidth,
+          height: window.innerHeight
+        };
+      });
+      if (this.localPlayer) {
+        this.generateTrees();
+      }
     });
   }
 }
-
-// Initialize game when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  new Game();
-});

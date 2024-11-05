@@ -1,6 +1,25 @@
+<!-- app/views/game/index.html.erb -->
 <div class="fixed inset-0 w-screen h-screen bg-green-100 overflow-hidden">
   <div id="game-field" class="w-full h-full relative">
     <div id="trees-container" class="w-full h-full"></div>
-    <div id="player" class="absolute w-8 h-8 bg-blue-500 rounded-full transition-all duration-100 z-10" style="left: 0; top: 0;"></div>
+    <div id="players-container" class="w-full h-full"></div>
+    
+    <!-- UI Elements -->
+    <div class="fixed top-4 left-4 space-y-2">
+      <div id="inventory" class="bg-white/90 p-3 rounded-lg shadow-lg">
+        <!-- Inventory content will be inserted by JavaScript -->
+      </div>
+      
+      <div id="notifications" class="space-y-2">
+        <!-- Notifications will be inserted by JavaScript -->
+      </div>
+    </div>
+
+    <!-- Controls Help -->
+    <div class="fixed bottom-4 right-4 bg-white/90 p-3 rounded-lg shadow-lg">
+      <h3 class="font-bold mb-2">Controls</h3>
+      <p>WASD - Move</p>
+      <p>SPACE - Collect resources</p>
+    </div>
   </div>
 </div>
