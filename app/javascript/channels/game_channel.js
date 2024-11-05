@@ -12,23 +12,23 @@ export class GameConnection {
   }
 
   connected() {
-    console.log("Connected to game channel");
+    ("Connected to game channel");
     // Request game state immediately after connection
     this.requestGameState();
   }
 
   disconnected() {
-    console.log("Disconnected from game channel");
+    ("Disconnected from game channel");
   }
 
   received(data) {
-    console.log("Received:", data);
+    ("Received:", data);
     switch (data.type) {
       case 'new_player':
         this.game.addPlayer(data.player_id, data.x, data.y);
         // If we're already in game, share our state with the new player
         if (this.game.localPlayer && data.player_id !== this.game.localPlayer.id) {
-          console.log('Sharing state with new player:', data.player_id);
+          ('Sharing state with new player:', data.player_id);
           this.sendPlayerState(data.player_id);
         }
         break;
@@ -44,7 +44,7 @@ export class GameConnection {
       case 'player_state':
         if (data.requesting_player_id === this.game.localPlayer?.id ||
             !this.game.players.has(data.player_id)) {
-          console.log('Received player state:', data);
+          ('Received player state:', data);
           this.game.addOrUpdatePlayer(data);
         }
         break;
@@ -52,7 +52,7 @@ export class GameConnection {
       case 'request_game_state':
         // When someone requests state, share our state if we're already playing
         if (this.game.localPlayer && data.player_id !== this.game.localPlayer.id) {
-          console.log('Sending state to requesting player:', data.player_id);
+          ('Sending state to requesting player:', data.player_id);
           this.sendPlayerState(data.player_id);
         }
     }

@@ -27,10 +27,10 @@ export class Game {
       
       if (isLocal) {
         this.localPlayer = player;
-        console.log('Local player initialized:', playerId);
+        ('Local player initialized:', playerId);
         this.connection.requestGameState();
       } else {
-        console.log('Remote player joined:', playerId);
+        ('Remote player joined:', playerId);
       }
     }
   }
@@ -40,7 +40,7 @@ export class Game {
     if (player) {
       player.element.remove();
       this.players.delete(playerId);
-      console.log('Player left:', playerId);
+      ('Player left:', playerId);
     }
   }
 
@@ -152,7 +152,7 @@ export class Game {
       }
     } else {
       // Create new player
-      console.log('Adding new player from state:', player_id);
+      ('Adding new player from state:', player_id);
       this.addPlayer(player_id, x, y);
       player = this.players.get(player_id);
       if (player) {
