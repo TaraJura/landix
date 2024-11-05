@@ -1,6 +1,5 @@
 // app/javascript/channels/game_channel.js
 import consumer from "./consumer";
-import { config } from '../config';
 
 export class GameConnection {
   constructor(game) {
@@ -56,21 +55,6 @@ export class GameConnection {
           console.log('Sending state to requesting player:', data.player_id);
           this.sendPlayerState(data.player_id);
         }
-        // If we're host, also share tree state
-        if (this.game.isHost && this.game.trees.size > 0) {
-          this.shareTreeLocations(this.game.getTreeData());
-        }
-        break;
-
-      case 'tree_locations':
-        if (!this.game.isHost && !this.game.treesInitialized) {
-          this.game.syncTrees(data.trees);
-        }
-        break;
-
-      case 'resource_collected':
-        this.game.handleResourceCollection(data.player_id, data.tree_id);
-        break;
     }
   }
 
@@ -87,15 +71,7 @@ export class GameConnection {
     this.subscription.perform('request_game_state');
   }
 
-  shareTreeLocations(trees) {
-    this.subscription.perform('share_tree_locations', { trees });
-  }
-
   sendPlayerMove(x, y) {
     this.subscription.perform('player_moved', { x, y });
-  }
-
-  sendResourceCollected(treeId) {
-    this.subscription.perform('resource_collected', { tree_id: treeId });
   }
 }
