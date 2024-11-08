@@ -1,20 +1,48 @@
 <!-- app/views/game/index.html.erb -->
 <div class="fixed inset-0 w-screen h-screen bg-green-100 overflow-hidden">
   <div id="game-field" class="w-full h-full relative">
-    <div id="players-container" class="w-full h-full"></div>
+    <!-- Game world container with grid for better spatial reference -->
+    <div id="players-container" class="w-full h-full relative">
+      <!-- Optional grid background for better spatial reference -->
+      <div class="absolute inset-0 opacity-10 pointer-events-none">
+        <div class="w-full h-full bg-grid-pattern"></div>
+      </div>
+    </div>
     
     <!-- UI Elements -->
-    <div class="fixed top-4 left-4 space-y-2">
+    <div class="fixed top-4 left-4 space-y-2 z-50">
       <div id="inventory" class="bg-white/90 p-3 rounded-lg shadow-lg">
-        <!-- Inventory content will be inserted by JavaScript -->
+        <h2 class="font-bold mb-2">Inventory</h2>
+        <div id="inventory-content">
+          <!-- Inventory content will be inserted by JavaScript -->
+        </div>
       </div>
     </div>
 
     <!-- Controls Help -->
-    <div class="fixed bottom-4 right-4 bg-white/90 p-3 rounded-lg shadow-lg">
+    <div class="fixed bottom-4 right-4 bg-white/90 p-3 rounded-lg shadow-lg z-50">
       <h3 class="font-bold mb-2">Controls</h3>
       <p>WASD - Move</p>
       <p>SPACE - Collect resources</p>
+      <p class="text-sm text-gray-600 mt-2">Stand near trees and press SPACE to collect wood</p>
     </div>
   </div>
 </div>
+
+<!-- Add this to your application.css -->
+<style>
+.bg-grid-pattern {
+  background-image: linear-gradient(#000 1px, transparent 1px),
+                    linear-gradient(90deg, #000 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+#players-container {
+  position: relative;
+  z-index: 1;
+}
+
+#players-container > div {
+  z-index: 2; /* Ensure players and trees are above the grid */
+}
+</style>
